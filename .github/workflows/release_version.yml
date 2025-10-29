@@ -1,0 +1,108 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Solo se ejecuta cuando se crean tags que comienzan con 'v'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      # Clonar el repositorio
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Configurar .NET
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Obtener información de la versión del tag
+      - name: Get version info
+        id: get_version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "RELEASE_NAME=Bank.Domain v$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      # Ejecutar tests antes del release
+      - name: Run tests
+        run: |
+          dotnet restore Bank/Bank.sln
+          dotnet test Bank/Bank.sln --configuration Release
+
+      # Restaurar y compilar
+      - name: Build project
+        run: |
+          dotnet restore Bank/Bank.Domain/Bank.Domain.csproj
+          dotnet build Bank/Bank.Domain/Bank.Domain.csproj --configuration Release /p:Version=${{ steps.get_version.outputs.VERSION }}
+
+      # Crear paquete NuGet
+      - name: Create NuGet package
+        run: dotnet pack Bank/Bank.Domain/Bank.Domain.csproj --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+
+      # Generar changelog automático
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Obtener el tag anterior o todos los commits si es el primer tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            CHANGES=$(git log --oneline --pretty=format:"- %s (%h)" HEAD)
+            echo "BODY=## 🚀 Initial Release v${{ steps.get_version.outputs.VERSION }}\n\n### 📝 Commits:\n$CHANGES" >> $GITHUB_OUTPUT
+          else
+            CHANGES=$(git log --oneline --pretty=format:"- %s (%h)" $PREV_TAG..HEAD)
+            echo "BODY=## 📦 Release v${{ steps.get_version.outputs.VERSION }}\n\n### 📋 Changes since $PREV_TAG:\n$CHANGES" >> $GITHUB_OUTPUT
+          fi
+
+      # Crear release en GitHub
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.TAG_NAME }}
+          release_name: ${{ steps.get_version.outputs.RELEASE_NAME }}
+          body: |
+            ${{ steps.changelog.outputs.BODY }}
+            
+            ### 📦 Package Details
+            - **Version**: ${{ steps.get_version.outputs.VERSION }}
+            - **Framework**: .NET 8.0
+            - **Package ID**: Bank.Domain
+            - **Authors**: Sebastian Nicolas Fuentes Avalos
+            
+            ### 🔧 Installation
+            ```xml
+            <PackageReference Include="Bank.Domain" Version="${{ steps.get_version.outputs.VERSION }}" />
+            ```
+            
+            ### 📊 NuGet Feed
+            Add this to your `nuget.config`:
+            ```xml
+            <packageSources>
+                <add key="github" value="https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" />
+            </packageSources>
+            ```
+          files: |
+            artifacts/*.nupkg
+            artifacts/*.snupkg
+          draft: false
+          prerelease: ${{ contains(steps.get_version.outputs.VERSION, '-') }}
+
+      # Publicar el paquete en GitHub Packages también
+      - name: Publish to GitHub Packages
+        run: |
+          for package in ./artifacts/*.nupkg
+          do
+            dotnet nuget push "$package" \
+              --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+              --api-key ${{ secrets.GITHUB_TOKEN }} \
+              --skip-duplicate
+          done

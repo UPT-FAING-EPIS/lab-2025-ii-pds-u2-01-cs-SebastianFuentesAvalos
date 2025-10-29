@@ -1,9 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-  <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    
+    <!-- Package Information -->
+    <PackageId>Bank.Domain</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Sebastian Nicolas Fuentes Avalos</Authors>
+    <Company>UPT-FAING-EPIS</Company>
+    <Product>Bank Domain Library</Product>
+    <Description>Library implementing Factory and Factory Method design patterns for credit card management</Description>
+    <PackageTags>design-patterns;factory;factory-method;credit-cards</PackageTags>
+    <RepositoryUrl>https://github.com/UPT-FAING-EPIS/lab-2025-ii-pds-u2-01-cs-SebastianFuentesAvalos</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
 </Project>

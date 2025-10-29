@@ -1,0 +1,82 @@
+name: Publish Documentation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-publish-docs:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+        
+    - name: Restore dependencies
+      run: dotnet restore Bank/Bank.sln
+      
+    - name: Build
+      run: dotnet build Bank/Bank.sln --no-restore --configuration Release
+      
+    - name: Install tools
+      run: |
+        dotnet tool install -g docfx
+        dotnet tool install -g dll2mmd
+        dotnet tool install -g dotnet-reportgenerator-globaltool
+      
+    - name: Run tests with coverage
+      run: dotnet test Bank/Bank.sln --configuration Release --collect:"XPlat Code Coverage"
+      
+    - name: Generate coverage report
+      run: |
+        mkdir -p Cobertura
+        ReportGenerator "-reports:Bank/**/coverage.cobertura.xml" "-targetdir:Cobertura" -reporttypes:MarkdownSummaryGithub
+        
+    - name: Generate class diagram
+      run: |
+        cd Bank
+        dll2mmd -f Bank.Domain/bin/Release/net8.0/Bank.Domain.dll -o disenio.md
+        
+    - name: Create index.md
+      run: |
+        cd Bank
+        cat > index.md << 'EOF'
+        ---
+        _layout: landing
+        ---
+        
+        # Bank Domain Documentation
+        
+        ## [📊 Diagrama de Clases](disenio.md)
+        
+        ## [🧪 Cobertura de Pruebas](../Cobertura/SummaryGithub.md)
+        EOF
+        
+    - name: Build documentation
+      run: |
+        cd Bank
+        docfx metadata docfx.json || echo "Metadata generation completed"
+        docfx build docfx.json
+        
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: Bank/_site
+        
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
