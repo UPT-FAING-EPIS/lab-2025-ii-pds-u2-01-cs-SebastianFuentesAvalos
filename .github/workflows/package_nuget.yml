@@ -71,6 +71,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
 
     steps:
     - uses: actions/checkout@v4
@@ -89,17 +90,18 @@ jobs:
     - name: Pack
       run: dotnet pack Bank/Bank.Domain/Bank.Domain.csproj --configuration Release --no-build --output ./nupkg
 
-    - name: Configure GitHub Packages source
+    - name: Authenticate to GitHub Packages
       run: |
-        dotnet nuget add source --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-          --username ${{ github.actor }} --password ${{ secrets.NUGET_API_KEY }} --store-password-in-clear-text || true
+        dotnet nuget add source --username ${{ github.actor }} --password ${{ secrets.NUGET_API_KEY }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
 
     - name: Publish to GitHub Packages
+      env:
+        NUGET_AUTH_TOKEN: ${{ secrets.NUGET_API_KEY }}
       run: |
         for package in ./nupkg/*.nupkg
         do
           dotnet nuget push "$package" \
-            --source "https://nuget.pkg.github.com/UPT-FAING-EPIS/index.json" \
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
             --api-key ${{ secrets.NUGET_API_KEY }} \
             --skip-duplicate
         done
