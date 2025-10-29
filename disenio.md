@@ -1,3 +1,5 @@
+!INCLUDE mermaid.md
+
 # Diagrama de Clases - Bank Domain
 
 ```mermaid
