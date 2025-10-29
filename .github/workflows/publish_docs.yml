@@ -37,6 +37,7 @@ jobs:
         dotnet tool install -g docfx
         dotnet tool install -g dll2mmd
         dotnet tool install -g dotnet-reportgenerator-globaltool
+        export PATH="$PATH:/home/runner/.dotnet/tools"
       
     - name: Run tests with coverage
       run: dotnet test Bank/Bank.sln --configuration Release --collect:"XPlat Code Coverage"
@@ -44,12 +45,16 @@ jobs:
     - name: Generate coverage report
       run: |
         mkdir -p Cobertura
-        ReportGenerator "-reports:Bank/**/coverage.cobertura.xml" "-targetdir:Cobertura" -reporttypes:MarkdownSummaryGithub
+        export PATH="$PATH:/home/runner/.dotnet/tools"
+        reportgenerator "-reports:Bank/**/coverage.cobertura.xml" "-targetdir:Cobertura" -reporttypes:MarkdownSummaryGithub
         
     - name: Generate class diagram
       run: |
+        export PATH="$PATH:/home/runner/.dotnet/tools"
         cd Bank
         dll2mmd -f Bank.Domain/bin/Release/net8.0/Bank.Domain.dll -o disenio.md
+        cd ..
+        cp Bank/disenio.md ./disenio.md
         
     - name: Create index.md
       run: |

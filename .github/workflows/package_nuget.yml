@@ -27,12 +27,15 @@ jobs:
       run: dotnet test Bank/Bank.sln --no-build --configuration Release --collect:"XPlat Code Coverage"
       
     - name: Install ReportGenerator
-      run: dotnet tool install -g dotnet-reportgenerator-globaltool
+      run: |
+        dotnet tool install -g dotnet-reportgenerator-globaltool
+        export PATH="$PATH:/home/runner/.dotnet/tools"
       
     - name: Generate coverage report
       run: |
         mkdir -p Cobertura
-        ReportGenerator "-reports:Bank/**/coverage.cobertura.xml" "-targetdir:Cobertura" -reporttypes:MarkdownSummaryGithub
+        export PATH="$PATH:/home/runner/.dotnet/tools"
+        reportgenerator "-reports:Bank/**/coverage.cobertura.xml" "-targetdir:Cobertura" -reporttypes:MarkdownSummaryGithub
         
     - name: Upload coverage reports
       uses: actions/upload-artifact@v4
